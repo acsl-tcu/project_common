@@ -1,0 +1,33 @@
+agent:
+  sensor:
+    tools:
+      motive:
+        class: acsl.tools.sensor.MotiveSensor
+        config:
+          server_ip: "192.168.100.43"
+          rigid_body_id: 1
+  plant:
+    tools:
+      exp_model:
+        class: acsl.tools.plant.DroneExpModel
+        config:
+          connector: serial
+          port: "/dev/ttyACM0"
+          baudrate: 115200
+    cascade: [exp_model]
+  input_transform:
+    tools:
+      t2t:
+        class: acsl.tools.input_transform.Thrust2Throttle
+        config:
+          hover_thrust: 0.5
+    cascade: [t2t]
+
+safety:
+  pre_flight_checks:
+    - name: "Motion capture connection"
+      check: {type: sensor_alive, sensor: motive, timeout_ms: 1000}
+    - name: "FCU serial connection"
+      check: {type: serial_alive, port: "/dev/ttyACM0"}
+    - name: "Battery voltage"
+      check: {type: battery_above, threshold: 22.0}

@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "acsl-framework"
+version = "0.1.0"
+description = "Unified drone control framework - ACSL, Tokyo City University"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+full = [
+    "scipy>=1.10",
+    "pydantic>=1.10",
+    "h5py>=3.8",
+]
+test = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+
+[tool.setuptools.packages.find]
+include = ["acsl*"]

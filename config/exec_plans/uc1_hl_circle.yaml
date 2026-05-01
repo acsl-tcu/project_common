@@ -1,0 +1,111 @@
+version: "2.0"
+meta:
+  name: "HL_circle_sim"
+  description: "Hierarchical linearization with circle trajectory"
+  pipeline: standard
+  profile: sim
+
+robot:
+  dt: 0.025
+  num_agents: 1
+
+agent:
+  parameter:
+    class: AgentParameter
+    mass: 1.0
+    arm_length: 0.17
+    inertia: [0.01, 0.01, 0.02]
+
+  sensor:
+    tools:
+      direct:
+        class: acsl.tools.sensor.DirectSensor
+        config: {}
+    cascade: [direct]
+
+  estimator:
+    tools:
+      direct:
+        class: acsl.tools.estimator.DirectEstimator
+        config: {}
+    cascade: [direct]
+
+  reference:
+    tools:
+      takeoff:
+        class: acsl.tools.reference.TakeoffReference
+        config:
+          target_altitude: 1.0
+          rate: 0.5
+      time_varying:
+        class: acsl.tools.reference.TimeVaryingReference
+        config:
+          trajectory: circle
+          radius: 1.0
+          period: 10.0
+          altitude: 1.0
+      landing:
+        class: acsl.tools.reference.LandingReference
+        config:
+          descent_rate: 0.3
+      hold:
+        class: acsl.tools.reference.HoldReference
+        config: {}
+
+  controller:
+    tools:
+      pid:
+        class: acsl.tools.controller.PIDController
+        config:
+          kp: 5.0
+          kd: 2.0
+    cascade: [pid]
+
+  plant:
+    tools:
+      model:
+        class: acsl.tools.plant.ModelQuat13
+        config: {}
+    cascade: [model]
+
+phases:
+  idle:
+    transitions:
+      - to: arm
+        guard: {type: command, value: arm}
+  arm:
+    allocation:
+      reference: [hold]
+    transitions:
+      - to: takeoff
+        guard: {type: command, value: takeoff}
+  takeoff:
+    allocation:
+      reference: [takeoff]
+    transitions:
+      - to: flight
+        guard: {type: altitude_reached, target: 1.0}
+  flight:
+    allocation:
+      reference: [time_varying]
+    transitions:
+      - to: landing
+        guard: {type: command, value: land}
+  landing:
+    allocation:
+      reference: [landing]
+    transitions:
+      - to: idle
+        guard: {type: altitude_below, target: 0.05}
+
+safety:
+  saturation:
+    thrust_max: 15.0
+    torque_max: [1.0, 1.0, 0.5]
+  watchdog:
+    comm_timeout_ms: 500
+    estimator_timeout_ms: 200
+
+logger:
+  handlers: [storage]
+  rate_hz: 40

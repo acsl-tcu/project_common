@@ -1,0 +1,14 @@
+agent:
+  sensor:
+    tools:
+      direct:
+        class: acsl.tools.sensor.DirectSensor
+        config: {}
+  plant:
+    tools:
+      model:
+        class: acsl.tools.plant.ModelQuat13
+    cascade: [model]
+  input_transform:
+    tools: {}
+    cascade: []

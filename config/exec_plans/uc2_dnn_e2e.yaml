@@ -1,0 +1,46 @@
+version: "2.0"
+meta:
+  name: "DNN_e2e_sim"
+  description: "End-to-End DNN control"
+  pipeline: dnn
+
+robot:
+  dt: 0.025
+  num_agents: 1
+
+agent:
+  parameter:
+    class: AgentParameter
+    mass: 1.0
+
+  sensor:
+    tools:
+      camera:
+        class: acsl.tools.sensor.CameraSensor
+        config:
+          topic: /camera/image_raw
+    cascade: [camera]
+
+  controller:
+    tools:
+      dnn:
+        class: acsl.tools.controller.DNNController
+        config:
+          model_path: models/e2e.onnx
+    cascade: [dnn]
+
+  plant:
+    tools:
+      model:
+        class: acsl.tools.plant.ModelQuat13
+        config: {}
+    cascade: [model]
+
+safety:
+  saturation:
+    thrust_max: 12.0
+    torque_max: [0.8, 0.8, 0.4]
+  watchdog:
+    estimator_timeout_ms: 500
+  failsafe:
+    action: pixhawk_land
