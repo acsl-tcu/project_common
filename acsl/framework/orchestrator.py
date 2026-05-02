@@ -13,6 +13,28 @@ from acsl.types.safety import SafetyConfig, SafetyAlert
 
 
 class Orchestrator:
+    """制御システム全体を俯瞰する統括クラス。
+
+    2つの実行モードをサポート:
+
+    sync (デフォルト):
+        Orchestrator が PipelineEngine で全ツールを順次実行する。
+        シミュレーションやテストで使用。
+        呼び出し: orchestrator.step()
+
+    async:
+        各ツールは外部（ROS2 タイマー等）で独立に実行される。
+        Orchestrator はフェーズ管理・安全監視・ログ・Blackboard 同期のみ行う。
+        呼び出し: orchestrator.monitor()
+
+    どちらのモードでも以下の機能を提供:
+        - PhaseManager による状態遷移とツール切替
+        - SafetyMonitor による入力サチュレーション・ウォッチドッグ
+        - Blackboard によるマルチエージェント通信
+        - Contract 検証（IntegrityChecker 経由）
+        - 統一ログ収集
+    """
+
     def __init__(
         self,
         agents: Optional[List[Agent]] = None,
@@ -21,12 +43,14 @@ class Orchestrator:
         blackboard: Optional[Blackboard] = None,
         safety_monitor: Optional[SafetyMonitor] = None,
         dt: float = 0.025,
+        mode: str = "sync",
     ):
         self.agents: List[Agent] = agents or []
         self.pipeline_engine = pipeline_engine or PipelineEngine("standard")
         self.phase_manager = phase_manager or PhaseManager()
         self.blackboard = blackboard or Blackboard()
         self.safety_monitor = safety_monitor
+        self.mode = mode
         self._dt = dt
         self._time = 0.0
         self._step_count = 0
@@ -35,27 +59,19 @@ class Orchestrator:
     def add_agent(self, agent: Agent) -> None:
         self.agents.append(agent)
 
+    # ---- sync mode: Orchestrator が実行を駆動 ----
+
     def step(self) -> StepContext:
-        self._time += self._dt
-        self._step_count += 1
-        wall_time = time_mod.time()
+        """sync モード: 全ツールを順次実行し、俯瞰処理も行う。"""
+        context = self._advance_time()
 
-        time = Time(now=self._time, dt=self._dt, step_count=self._step_count, wall_time=wall_time)
-        context = StepContext(time=time, phase=self.phase_manager.current_phase)
-        context.agent_states = {k: v for k, v in self.blackboard.read_all().items()}
+        # 1. フェーズ評価
+        self._evaluate_phase(context)
 
-        # 1. Phase evaluation
-        new_phase = self.phase_manager.evaluate(context)
-        if new_phase:
-            allocation = self.phase_manager.transition(new_phase, context)
-            context.phase = new_phase
-            for agent in self.agents:
-                agent.apply_allocation(allocation)
-
-        # 2. Execute all agents
+        # 2. 全エージェントのパイプライン実行
         for i, agent in enumerate(self.agents):
             agent_ctx = StepContext(
-                time=time,
+                time=context.time,
                 phase=context.phase,
                 agent_index=i,
                 agent_states=context.agent_states,
@@ -65,23 +81,72 @@ class Orchestrator:
             state = agent.update_state_snapshot(agent_ctx)
             self.blackboard.write(i, state)
 
-        # 3. Safety check
-        if self.safety_monitor:
-            alerts = self.safety_monitor.check(context)
-            if self.safety_monitor.has_critical(alerts):
-                self.phase_manager.force_transition("emergency", context)
+        # 3. 安全チェック
+        self._check_safety(context)
 
-        # 4. Blackboard swap
+        # 4. Blackboard 同期
         self.blackboard.swap()
 
         return context
 
     def run(self, steps: int) -> List[StepContext]:
+        """sync モード: 複数ステップを実行。"""
         history = []
         for _ in range(steps):
             ctx = self.step()
             history.append(ctx)
         return history
+
+    # ---- async mode: 外部が実行、Orchestrator は俯瞰のみ ----
+
+    def monitor(self) -> StepContext:
+        """async モード: ツール実行は行わず、俯瞰処理のみ。
+
+        各ツールは ROS2 タイマー等で独立に実行されている前提。
+        Agent の state snapshot は外部から update_state_snapshot() で更新される。
+        """
+        context = self._advance_time()
+
+        # 1. フェーズ評価
+        self._evaluate_phase(context)
+
+        # 2. 各エージェントの最新状態を Blackboard に反映
+        for i, agent in enumerate(self.agents):
+            state = agent.get_state_snapshot()
+            self.blackboard.write(i, state)
+
+        # 3. 安全チェック
+        self._check_safety(context)
+
+        # 4. Blackboard 同期
+        self.blackboard.swap()
+
+        return context
+
+    # ---- 共通の内部メソッド ----
+
+    def _advance_time(self) -> StepContext:
+        self._time += self._dt
+        self._step_count += 1
+        wall_time = time_mod.time()
+        time = Time(now=self._time, dt=self._dt, step_count=self._step_count, wall_time=wall_time)
+        context = StepContext(time=time, phase=self.phase_manager.current_phase)
+        context.agent_states = {k: v for k, v in self.blackboard.read_all().items()}
+        return context
+
+    def _evaluate_phase(self, context: StepContext) -> None:
+        new_phase = self.phase_manager.evaluate(context)
+        if new_phase:
+            allocation = self.phase_manager.transition(new_phase, context)
+            context.phase = new_phase
+            for agent in self.agents:
+                agent.apply_allocation(allocation)
+
+    def _check_safety(self, context: StepContext) -> None:
+        if self.safety_monitor:
+            alerts = self.safety_monitor.check(context)
+            if self.safety_monitor.has_critical(alerts):
+                self.phase_manager.force_transition("emergency", context)
 
     @property
     def time(self) -> float:
@@ -92,4 +157,4 @@ class Orchestrator:
         return self._step_count
 
     def __repr__(self) -> str:
-        return f"Orchestrator(agents={len(self.agents)}, phase={self.phase_manager.current_phase})"
+        return f"Orchestrator(mode={self.mode}, agents={len(self.agents)}, phase={self.phase_manager.current_phase})"
