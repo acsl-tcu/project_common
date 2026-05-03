@@ -21,9 +21,14 @@ class StepContext:
     agent_states: Dict[int, Any] = field(default_factory=dict)
     config: Dict[str, Any] = field(default_factory=dict)
     parameter: Optional[Any] = None
+    _cascade_input: Optional["Result"] = field(default=None, repr=False)
 
     def get_upstream(self, category: str) -> Optional["Result"]:
         return self.results.get(category)
+
+    def get_cascade_input(self) -> Optional["Result"]:
+        """cascade 内で前段 Tool の出力を取得する。"""
+        return self._cascade_input
 
     def get_agent_state(self, agent_id: int) -> Optional[Any]:
         return self.agent_states.get(agent_id)

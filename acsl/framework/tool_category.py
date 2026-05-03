@@ -90,6 +90,7 @@ class ToolCategory:
 
     def _execute_cascade(self, context: StepContext) -> Optional[Result]:
         last_result = None
+        context._cascade_input = None
         for slot_name in self._cascade_order:
             slot = self._slots.get(slot_name)
             if slot is None:
@@ -97,7 +98,9 @@ class ToolCategory:
             result = slot.step(context)
             if result is not None:
                 last_result = result
+                context._cascade_input = result
                 context.update_results(f"{self.name}.{slot_name}", result)
+        context._cascade_input = None
         return last_result
 
     def _execute_parallel(self, context: StepContext) -> Optional[Result]:
