@@ -100,20 +100,12 @@ class ConfigLoader:
 
     # --- Agent 構築 ---
 
-    def build_agent(self, config: Optional[Dict] = None):
+    def build_agent(self, config: Optional[Dict] = None, strict: bool = False):
         """YAML config から Agent + ToolCategory を構築する。
 
-        config 構成:
-          robot:
-            dt: 0.025
-          agent:
-            parameter: {mass: 1.0, ...}
-            sensor:
-              tools:
-                direct: {class: acsl.tools.sensor.DirectSensor, config: {}}
-              cascade: [direct]
-            estimator: ...
-            controller: ...
+        Args:
+            strict: True なら class import/instantiate/cascade エラーで例外送出。
+                    False なら warning で続行（PoC モード）。
         """
         from acsl.framework.agent import Agent, AgentConfig
         from acsl.framework.tool_category import ToolCategory
@@ -153,13 +145,19 @@ class ConfigLoader:
                 class_path = tool_spec.get("class", "")
                 tool_cls = _load_class(class_path)
                 if tool_cls is None:
-                    logger.warning(f"Skipping tool '{tool_name}': class '{class_path}' not found")
+                    msg = f"Tool '{tool_name}': class '{class_path}' not found"
+                    if strict:
+                        raise ImportError(msg)
+                    logger.warning(f"Skipping {msg}")
                     continue
                 tool_config = tool_spec.get("config", {})
                 try:
                     tool = tool_cls(**tool_config) if tool_config else tool_cls()
                 except Exception as e:
-                    logger.warning(f"Failed to instantiate '{tool_name}': {e}")
+                    msg = f"Failed to instantiate '{tool_name}': {e}"
+                    if strict:
+                        raise RuntimeError(msg) from e
+                    logger.warning(msg)
                     continue
 
                 if not hasattr(tool, 'name'):
@@ -170,6 +168,8 @@ class ConfigLoader:
                 try:
                     category.set_cascade(cascade)
                 except ValueError as e:
+                    if strict:
+                        raise
                     logger.warning(f"cascade error in '{cat_name}': {e}")
 
             agent.add_category(category)
@@ -253,8 +253,11 @@ class ConfigLoader:
 
     # --- 一括構築 ---
 
-    def build_all(self, config: Optional[Dict] = None):
+    def build_all(self, config: Optional[Dict] = None, strict: bool = False):
         """YAML config から Agent + PhaseManager + Orchestrator を一括構築する。
+
+        Args:
+            strict: True なら構築エラーで例外送出（実運用モード）。
 
         Returns:
             (orchestrator, agent, phase_manager)
@@ -263,7 +266,7 @@ class ConfigLoader:
         from acsl.framework.pipeline_engine import PipelineEngine
 
         cfg = config or self._config
-        agent, dt = self.build_agent(cfg)
+        agent, dt = self.build_agent(cfg, strict=strict)
         pm = self.build_phase_manager(cfg)
 
         meta = cfg.get("meta", {})

@@ -31,7 +31,13 @@ class Agent:
     def get_category(self, name: str) -> Optional[ToolCategory]:
         return self._categories.get(name)
 
-    def apply_allocation(self, allocation: Any) -> None:
+    def apply_allocation(self, allocation: Any, strict: bool = False) -> None:
+        """PhaseAllocation を適用してツールを切り替える。
+
+        Args:
+            strict: True なら不正な allocation で例外を送出（実機統合モード）。
+                    False なら warning で続行（PoC モード）。
+        """
         if allocation is None:
             return
         alloc_dict = allocation.as_dict() if hasattr(allocation, "as_dict") else {}
@@ -40,17 +46,21 @@ class Agent:
         for cat_name, tool_names in alloc_dict.items():
             category = self._categories.get(cat_name)
             if category is None:
-                logger.warning(
-                    f"Agent[{self.config.agent_id}]: allocation references category "
-                    f"'{cat_name}' which does not exist. Available: {list(self._categories.keys())}")
+                msg = (f"Agent[{self.config.agent_id}]: allocation references category "
+                       f"'{cat_name}' which does not exist. Available: {list(self._categories.keys())}")
+                if strict:
+                    raise ValueError(msg)
+                logger.warning(msg)
                 continue
             if tool_names:
                 try:
                     category.activate_tools(tool_names)
                 except ValueError as e:
-                    logger.warning(
-                        f"Agent[{self.config.agent_id}]: failed to activate tools "
-                        f"{tool_names} in '{cat_name}': {e}")
+                    msg = (f"Agent[{self.config.agent_id}]: failed to activate tools "
+                           f"{tool_names} in '{cat_name}': {e}")
+                    if strict:
+                        raise
+                    logger.warning(msg)
 
     def get_state_snapshot(self) -> AgentState:
         state = AgentState(agent_id=self.config.agent_id)

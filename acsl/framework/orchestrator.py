@@ -80,6 +80,8 @@ class Orchestrator:
             self.pipeline_engine.execute_step(agent, agent_ctx)
             state = agent.update_state_snapshot(agent_ctx)
             self.blackboard.write(i, state)
+            # パイプライン結果を親 context に反映
+            context.results.update(agent_ctx.results)
 
         # 3. 安全チェック
         self._check_safety(context)
