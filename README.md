@@ -13,6 +13,7 @@ project_common/
 │   ├── framework/               # フレームワークコア
 │   ├── types/                   # 共通型定義
 │   ├── tools/                   # 基本ツール群
+│   ├── testing/                 # ToolTestBench (PoC テスト)
 │   └── logger/                  # ロギング
 ├── config/                      # 共通設定テンプレート
 │   ├── exec_plans/              # 実行プラン例 (YAML)
@@ -329,6 +330,17 @@ other_state = context.get_agent_state(agent_id=0)
 1. **入力サチュレーション** — 推力・トルクのクリッピング + 変化率制限
 2. **ウォッチドッグ** — 通信タイムアウト、推定値staleness 検知
 3. **フェイルセーフ** — 異常検知時に Pixhawk の Land/RTL モードを発行
+
+## PoC ワークフロー
+
+新しいツールの開発手順は [docs/poc_workflow.md](docs/poc_workflow.md) を参照。
+
+```
+Step 1: step() だけ書く（contract 不要）
+Step 2: ToolTestBench で rosbag テスト
+Step 3: /generate-contract で contract 自動生成
+Step 4: robot_building.py に統合
+```
 
 ## 設計ドキュメント
 
