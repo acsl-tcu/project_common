@@ -5,8 +5,8 @@ from acsl.types import (
     IOContract, IOField,
 )
 from acsl.framework import (
-    Orchestrator, Agent, PipelineEngine,
+    Orchestrator, Agent, AgentConfig, PipelineEngine,
     PhaseManager, Blackboard, SafetyMonitor,
-    ToolCategory, ToolSlot,
+    ToolCategory,
     ConfigLoader, IntegrityChecker,
 )

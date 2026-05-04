@@ -83,3 +83,30 @@ class TestToolCategory:
         ctx = StepContext(time=Time(now=0.1))
         result = cat.execute(ctx)
         assert result is not None
+
+    def test_tool_without_contract(self):
+        """contract() なしの Tool (PoC モード) が動作する"""
+        class MinimalTool:
+            name = "minimal"
+            def step(self, context):
+                return Result(state=42.0)
+
+        cat = ToolCategory("sensor")
+        cat.add_tool(MinimalTool())
+        ctx = StepContext(time=Time(now=0.1))
+        result = cat.execute(ctx)
+        assert result is not None
+        assert result.state == 42.0
+
+    def test_tool_without_contract_returns_empty_contract(self):
+        """contract() なしの Tool の contract() は空を返す"""
+        class MinimalTool:
+            name = "minimal"
+            def step(self, context):
+                return Result(state=1.0)
+
+        cat = ToolCategory("sensor")
+        cat.add_tool(MinimalTool())
+        contract = cat._slots["minimal"].contract()
+        assert contract["step"]["inputs"] == {}
+        assert contract["step"]["outputs"] == {}

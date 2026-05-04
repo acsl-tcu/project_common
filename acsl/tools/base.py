@@ -6,8 +6,12 @@ from acsl.types.contract import IOContract
 
 @runtime_checkable
 class Tool(Protocol):
+    """Tool の最小インターフェース。
+
+    必須: name (str), step(context) -> Optional[Result]
+    オプション: contract() -> IOContract (PoC 時は省略可)
+    """
     name: str
-    def contract(self) -> IOContract: ...
     def step(self, context: StepContext) -> Optional[Result]: ...
 
 

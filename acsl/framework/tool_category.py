@@ -7,8 +7,12 @@ from acsl.types.contract import IOContract
 
 @runtime_checkable
 class Tool(Protocol):
+    """Tool の最小インターフェース。
+
+    必須: name, step()
+    オプション: contract() — PoC 時は省略可。統合時に IntegrityChecker が要求。
+    """
     name: str
-    def contract(self) -> IOContract: ...
     def step(self, context: StepContext) -> Optional[Result]: ...
 
 
@@ -52,7 +56,9 @@ class ToolSlot:
         tool = self.active_tool
         if tool is None:
             return {"step": {"inputs": {}, "outputs": {}}}
-        return tool.contract()
+        if hasattr(tool, 'contract') and callable(tool.contract):
+            return tool.contract()
+        return {"step": {"inputs": {}, "outputs": {}}}
 
 
 class ToolCategory:
