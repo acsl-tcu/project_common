@@ -35,13 +35,22 @@ class Agent:
         if allocation is None:
             return
         alloc_dict = allocation.as_dict() if hasattr(allocation, "as_dict") else {}
+        import logging
+        logger = logging.getLogger(__name__)
         for cat_name, tool_names in alloc_dict.items():
             category = self._categories.get(cat_name)
-            if category and tool_names:
+            if category is None:
+                logger.warning(
+                    f"Agent[{self.config.agent_id}]: allocation references category "
+                    f"'{cat_name}' which does not exist. Available: {list(self._categories.keys())}")
+                continue
+            if tool_names:
                 try:
                     category.activate_tools(tool_names)
-                except ValueError:
-                    pass
+                except ValueError as e:
+                    logger.warning(
+                        f"Agent[{self.config.agent_id}]: failed to activate tools "
+                        f"{tool_names} in '{cat_name}': {e}")
 
     def get_state_snapshot(self) -> AgentState:
         state = AgentState(agent_id=self.config.agent_id)

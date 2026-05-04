@@ -68,13 +68,18 @@ class PhaseManager:
         self._current_phase = phase
 
     def evaluate(self, context: StepContext) -> Optional[str]:
+        import logging
+        logger = logging.getLogger(__name__)
         candidates = [t for t in self._transitions if t.from_phase == self._current_phase]
         candidates.sort(key=lambda t: t.priority, reverse=True)
         for t in candidates:
             try:
                 if t.guard(context):
                     return t.to_phase
-            except Exception:
+            except Exception as e:
+                logger.warning(
+                    f"PhaseManager: guard '{t.description or t.to_phase}' "
+                    f"(from '{t.from_phase}') raised {type(e).__name__}: {e}")
                 continue
         return None
 

@@ -79,7 +79,10 @@ class ToolCategory:
         self._cascade_order = []
         for name in names:
             if name not in self._slots:
-                raise ValueError(f"Tool '{name}' not found in category '{self.name}'")
+                raise ValueError(
+                    f"Tool '{name}' not found in category '{self.name}'. "
+                    f"Available: {list(self._slots.keys())}. "
+                    f"Did you forget to add_tool()?")
             self._cascade_order.append(name)
 
     def execute(self, context: StepContext) -> Optional[Result]:
