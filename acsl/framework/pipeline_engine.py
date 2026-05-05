@@ -96,5 +96,16 @@ class PipelineEngine:
             visit(n)
         return order
 
+    def to_mermaid(self) -> str:
+        """Generate a Mermaid graph of the pipeline DAG."""
+        lines = ["graph TD"]
+        for category, deps in self._dag.items():
+            if not deps:
+                lines.append(f"    {category}")
+            else:
+                for dep in deps:
+                    lines.append(f"    {dep} --> {category}")
+        return "\n".join(lines)
+
     def __repr__(self) -> str:
         return f"PipelineEngine(preset={self._preset}, order={self._execution_order})"

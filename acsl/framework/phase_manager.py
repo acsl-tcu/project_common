@@ -117,5 +117,13 @@ class PhaseManager:
     def phases(self) -> List[str]:
         return list(self._phase_configs.keys())
 
+    def to_mermaid(self) -> str:
+        """Generate a Mermaid flowchart string from registered phases and transitions."""
+        lines = ["graph TD"]
+        for t in self._transitions:
+            label = t.description if t.description else ""
+            lines.append(f"    {t.from_phase} -->|{label}| {t.to_phase}")
+        return "\n".join(lines)
+
     def __repr__(self) -> str:
         return f"PhaseManager(current={self._current_phase}, phases={self.phases})"
