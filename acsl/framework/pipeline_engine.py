@@ -15,13 +15,13 @@ PRESETS = {
         "reference": ["estimator"],
         "controller": ["estimator", "reference"],
         "input_transform": ["controller"],
-        "plant": ["input_transform"],
+        "actuator": ["input_transform"],
     },
     "dnn": {
         "sensor": [],
         "controller": ["sensor"],
         "input_transform": ["controller"],
-        "plant": ["input_transform"],
+        "actuator": ["input_transform"],
     },
     "estimation_only": {
         "sensor": [],
@@ -33,7 +33,7 @@ PRESETS = {
         "reference": ["estimator"],
         "controller": ["estimator", "reference"],
         "input_transform": ["controller"],
-        "plant": ["input_transform"],
+        "actuator": ["input_transform"],
     },
 }
 

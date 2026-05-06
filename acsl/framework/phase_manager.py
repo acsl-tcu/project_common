@@ -11,7 +11,7 @@ class PhaseAllocation:
     reference: List[str] = field(default_factory=list)
     controller: List[str] = field(default_factory=list)
     input_transform: List[str] = field(default_factory=list)
-    plant: List[str] = field(default_factory=list)
+    actuator: List[str] = field(default_factory=list)
     operator: List[str] = field(default_factory=list)
 
     def get(self, category: str) -> List[str]:
@@ -25,7 +25,7 @@ class PhaseAllocation:
                 "reference": self.reference,
                 "controller": self.controller,
                 "input_transform": self.input_transform,
-                "plant": self.plant,
+                "actuator": self.actuator,
                 "operator": self.operator,
             }.items() if v
         }

@@ -126,7 +126,7 @@ class ConfigLoader:
         agent = Agent(AgentConfig(agent_id=0, dt=dt, parameter=param))
 
         categories = ["sensor", "estimator", "reference", "controller",
-                       "input_transform", "plant"]
+                       "input_transform", "actuator"]
 
         for cat_name in categories:
             cat_cfg = agent_cfg.get(cat_name)
