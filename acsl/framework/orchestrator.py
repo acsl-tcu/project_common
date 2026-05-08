@@ -1,6 +1,9 @@
 from __future__ import annotations
 from dataclasses import field
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
+import selectors
+import socket
+import threading
 import time as time_mod
 
 from acsl.framework.agent import Agent
@@ -44,6 +47,8 @@ class Orchestrator:
         safety_monitor: Optional[SafetyMonitor] = None,
         dt: float = 0.025,
         mode: str = "sync",
+        console_port: int = 0,
+        console_handler: Optional[Any] = None,
     ):
         self.agents: List[Agent] = agents or []
         self.pipeline_engine = pipeline_engine or PipelineEngine("standard")
@@ -55,6 +60,11 @@ class Orchestrator:
         self._time = 0.0
         self._step_count = 0
         self._log: List[Dict[str, Any]] = []
+        self._console_handler = console_handler
+        self._console_srv = None
+
+        if console_port > 0:
+            self._start_console_server(console_port)
 
     def add_agent(self, agent: Agent) -> None:
         self.agents.append(agent)
@@ -157,6 +167,49 @@ class Orchestrator:
     @property
     def step_count(self) -> int:
         return self._step_count
+
+    # ---- TCP console server ----
+
+    def _start_console_server(self, port: int):
+        """バックグラウンドで TCP ソケットサーバーを起動。"""
+        srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        srv.bind(("0.0.0.0", port))
+        srv.listen(2)
+        srv.setblocking(False)
+        self._console_srv = srv
+        t = threading.Thread(target=self._console_loop, daemon=True)
+        t.start()
+
+    def _console_loop(self):
+        sel = selectors.DefaultSelector()
+        sel.register(self._console_srv, selectors.EVENT_READ)
+        while True:
+            events = sel.select(timeout=1.0)
+            for key, _ in events:
+                if key.fileobj is self._console_srv:
+                    conn, _ = self._console_srv.accept()
+                    sel.register(conn, selectors.EVENT_READ)
+                else:
+                    conn = key.fileobj
+                    try:
+                        data = conn.recv(1024)
+                        if data:
+                            cmd = data.decode().strip()
+                            resp = self._handle_console(cmd)
+                            conn.sendall((resp + "\n").encode())
+                        else:
+                            sel.unregister(conn)
+                            conn.close()
+                    except Exception:
+                        sel.unregister(conn)
+                        conn.close()
+
+    def _handle_console(self, cmd: str) -> str:
+        """console コマンド処理。console_handler があれば委譲。"""
+        if self._console_handler:
+            return self._console_handler(cmd)
+        return f"OK {cmd}"
 
     def __repr__(self) -> str:
         return f"Orchestrator(mode={self.mode}, agents={len(self.agents)}, phase={self.phase_manager.current_phase})"

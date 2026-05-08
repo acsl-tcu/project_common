@@ -82,6 +82,15 @@ class ToolCategory:
         self._cascade_order = order
 
     def activate_tools(self, names: List[str]) -> None:
+        """ツール切替。on_deactivate / on_activate を自動呼び出し。"""
+        prev_names = set(self._cascade_order)
+        new_names = set(names)
+
+        for n in prev_names - new_names:
+            slot = self._slots.get(n)
+            if slot and slot.active_tool and hasattr(slot.active_tool, 'on_deactivate'):
+                slot.active_tool.on_deactivate()
+
         self._cascade_order = []
         for name in names:
             if name not in self._slots:
@@ -90,6 +99,11 @@ class ToolCategory:
                     f"Available: {list(self._slots.keys())}. "
                     f"Did you forget to add_tool()?")
             self._cascade_order.append(name)
+
+        for n in new_names - prev_names:
+            slot = self._slots.get(n)
+            if slot and slot.active_tool and hasattr(slot.active_tool, 'on_activate'):
+                slot.active_tool.on_activate()
 
     def execute(self, context: StepContext) -> Optional[Result]:
         if self.mode == "cascade":
