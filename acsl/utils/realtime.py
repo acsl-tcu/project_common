@@ -125,7 +125,11 @@ def make_executor(logger=None):
               "busy-loop + タイマー飢餓のリスクあり (acsl.utils.realtime 参照)")
     else:
         executor = SingleThreadedExecutor()
-        _info(logger, "Executor: SingleThreadedExecutor")
+        _info(logger,
+              "Executor: SingleThreadedExecutor "
+              "(ROS コールバックを1本のスレッドで直列実行。Python は GIL の"
+              "ため複数スレッド化しても並列にならない — ブロッキング処理は"
+              "コールバックに置かず専用スレッド/プロセスへ)")
     return executor
 
 
